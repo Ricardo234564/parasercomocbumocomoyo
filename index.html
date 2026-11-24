@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>IRON PULSE // Gym & Volume Tracker</title>
+
+  <!-- Configuración PWA & Móvil -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#090a0f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="IRON PULSE" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <!-- Tailwind CSS & Chart.js & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Chakra Petch"', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            bg: '#090a0f',
+            card: '#12151e',
+            cardHover: '#181c28',
+            lime: '#ccff00',
+            cyan: '#00f0ff',
+            borderDark: '#232838'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090a0f;
+      color: #f1f5f9;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      overscroll-behavior-y: none;
+    }
+    .neon-lime-glow { box-shadow: 0 0 20px rgba(204, 255, 0, 0.25); }
+    .neon-cyan-glow { box-shadow: 0 0 20px rgba(0, 240, 255, 0.2); }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #090a0f; }
+    ::-webkit-scrollbar-thumb { background: #232838; border-radius: 4px; }
+    input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-lime selection:text-bg">
+
+  <!-- Banner de Instalación PWA (aparece automáticamente si es instalable) -->
+  <div id="install-banner" class="hidden bg-gradient-to-r from-lime/20 via-card to-cyan/20 border-b border-lime/40 px-4 py-2.5">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="bg-lime text-bg font-display font-bold text-xs px-2 py-0.5 rounded">APP</span>
+        <p class="text-xs sm:text-sm font-medium text-white">Instala <span class="text-lime font-bold">IRON PULSE</span> en tu pantalla de inicio</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-install-pwa" class="bg-lime text-bg font-bold text-xs px-3 py-1.5 rounded-lg hover:brightness-110 transition">Instalar</button>
+        <button onclick="document.getElementById('install-banner').classList.add('hidden')" class="text-slate-400 hover:text-white p-1">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-40 bg-bg/90 backdrop-blur-md border-b border-borderDark">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-lime flex items-center justify-center text-bg font-display font-bold text-xl neon-lime-glow">
+          ⚡
+        </div>
+        <div>
+          <h1 class="font-display font-bold text-lg tracking-wider text-white leading-none">IRON PULSE</h1>
+          <span class="text-[10px] font-mono text-cyan tracking-widest uppercase">Volume & PR OS</span>
+        </div>
+      </div>
+
+      <!-- Rest Timer & Unit Toggle -->
+      <div class="flex items-center gap-2">
+        <div class="flex items-center bg-card border border-borderDark rounded-lg px-2 py-1 gap-1.5">
+          <i data-lucide="timer" class="w-4 h-4 text-cyan"></i>
+          <span id="timer-display" class="font-mono text-sm font-bold text-white w-12 text-center">00:00</span>
+          <div class="hidden sm:flex gap-1">
+            <button onclick="startTimer(60)" class="text-[11px] font-mono bg-bg hover:bg-borderDark px-1.5 py-0.5 rounded text-slate-300">60s</button>
+            <button onclick="startTimer(90)" class="text-[11px] font-mono bg-bg hover:bg-borderDark px-1.5 py-0.5 rounded text-slate-300">90s</button>
+            <button onclick="startTimer(120)" class="text-[11px] font-mono bg-bg hover:bg-borderDark px-1.5 py-0.5 rounded text-slate-300">2m</button>
+          </div>
+          <button onclick="startTimer(90)" class="sm:hidden text-[11px] font-mono bg-bg px-1.5 py-0.5 rounded text-cyan">+90s</button>
+          <button id="timer-stop" onclick="stopTimer()" class="hidden text-[11px] text-rose-400 hover:text-rose-300 font-bold px-1">✕</button>
+        </div>
+
+        <button onclick="toggleUnit()" id="unit-btn" class="font-mono text-xs font-bold bg-card border border-borderDark hover:border-lime text-lime px-2.5 py-1.5 rounded-lg transition">
+          KG
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="max-w-5xl mx-auto px-4 flex gap-1 overflow-x-auto border-t border-borderDark/50">
+      <button onclick="switchTab('dashboard')" data-tab="dashboard" class="tab-btn flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-lime text-lime whitespace-nowrap">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Resumen Semanal
+      </button>
+      <button onclick="switchTab('log')" data-tab="log" class="tab-btn flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i> Registrar Rutina
+      </button>
+      <button onclick="switchTab('calendar')" data-tab="calendar" class="tab-btn flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+        <i data-lucide="calendar" class="w-4 h-4"></i> Días y Calendario
+      </button>
+      <button onclick="switchTab('progress')" data-tab="progress" class="tab-btn flex items-center gap-1.5 px-3 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+        <i data-lucide="trophy" class="w-4 h-4"></i> Progreso y PRs
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+
+    <!-- TAB 1: DASHBOARD SEMANAL -->
+    <section id="view-dashboard" class="space-y-6">
+      <!-- Week Selector -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-card border border-borderDark p-3.5 rounded-xl">
+        <div class="flex items-center gap-2">
+          <button onclick="changeWeek(-1)" class="p-1.5 rounded-lg bg-bg border border-borderDark hover:border-lime text-slate-300">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <div class="px-2">
+            <p class="text-[11px] uppercase tracking-wider text-slate-400 font-mono">Semana Seleccionada</p>
+            <p id="week-label" class="font-display font-bold text-white text-sm sm:text-base">Esta Semana</p>
+          </div>
+          <button onclick="changeWeek(1)" class="p-1.5 rounded-lg bg-bg border border-borderDark hover:border-lime text-slate-300">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="resetToCurrentWeek()" class="text-xs font-mono text-cyan hover:underline px-2 py-1">Hoy</button>
+          <button onclick="switchTab('log')" class="bg-lime text-bg font-bold text-xs sm:text-sm px-3.5 py-2 rounded-lg hover:brightness-110 transition flex items-center gap-1.5 neon-lime-glow">
+            <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Entreno
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-card border border-borderDark p-4 rounded-xl">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-xs font-medium">Volumen Semanal</span>
+            <i data-lucide="weight" class="w-4 h-4 text-lime"></i>
+          </div>
+          <p id="kpi-volume" class="font-mono text-2xl sm:text-3xl font-bold text-white">0 kg</p>
+          <p id="kpi-volume-diff" class="text-[11px] font-mono text-slate-400 mt-1">Series × Reps × Peso</p>
+        </div>
+
+        <div class="bg-card border border-borderDark p-4 rounded-xl">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-xs font-medium">Series Totales</span>
+            <i data-lucide="layers" class="w-4 h-4 text-cyan"></i>
+          </div>
+          <p id="kpi-sets" class="font-mono text-2xl sm:text-3xl font-bold text-white">0</p>
+          <p id="kpi-reps" class="text-[11px] font-mono text-slate-400 mt-1">0 repeticiones totales</p>
+        </div>
+
+        <div class="bg-card border border-borderDark p-4 rounded-xl">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-xs font-medium">Días Activos</span>
+            <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <p id="kpi-days" class="font-mono text-2xl sm:text-3xl font-bold text-white">0 / 7</p>
+          <div id="week-dots" class="flex gap-1 mt-2"></div>
+        </div>
+
+        <div class="bg-card border border-borderDark p-4 rounded-xl">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-xs font-medium">Carga Máxima (PR)</span>
+            <i data-lucide="award" class="w-4 h-4 text-fuchsia-400"></i>
+          </div>
+          <p id="kpi-max" class="font-mono text-2xl sm:text-3xl font-bold text-white">0 kg</p>
+          <p id="kpi-max-ex" class="text-[11px] text-slate-400 truncate mt-1">Sin registros</p>
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 bg-card border border-borderDark p-4 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display font-bold text-white text-base">Volumen por Día de la Semana</h2>
+            <span class="text-xs font-mono text-slate-400">Lun – Dom</span>
+          </div>
+          <div class="h-60">
+            <canvas id="weeklyChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-card border border-borderDark p-4 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display font-bold text-white text-base">Volumen por Músculo</h2>
+            <span class="text-xs font-mono text-cyan">Distribución</span>
+          </div>
+          <div class="h-60 flex items-center justify-center">
+            <canvas id="muscleChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Workouts List -->
+      <div class="bg-card border border-borderDark rounded-xl p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display font-bold text-white text-base">Sesiones de esta Semana</h2>
+          <div class="flex gap-2">
+            <button onclick="exportData()" class="text-xs font-mono bg-bg border border-borderDark hover:border-cyan text-slate-300 px-2.5 py-1 rounded-lg">Exportar JSON</button>
+            <label class="text-xs font-mono bg-bg border border-borderDark hover:border-lime text-slate-300 px-2.5 py-1 rounded-lg cursor-pointer">
+              Importar
+              <input type="file" accept=".json" onchange="importData(event)" class="hidden">
+            </label>
+          </div>
+        </div>
+        <div id="weekly-sessions-list" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: REGISTRAR RUTINA -->
+    <section id="view-log" class="hidden space-y-5">
+      <div class="bg-card border border-borderDark rounded-xl p-4 sm:p-6">
+        <h2 class="font-display font-bold text-xl text-white mb-4 flex items-center gap-2">
+          <i data-lucide="dumbbell" class="w-5 h-5 text-lime"></i> Registrar Entrenamiento
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">Fecha</label>
+            <input type="date" id="log-date" class="w-full bg-bg border border-borderDark rounded-lg px-3 py-2 text-sm text-white focus:border-lime outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">Grupo Muscular</label>
+            <select id="log-muscle" onchange="updateExerciseSuggestions()" class="w-full bg-bg border border-borderDark rounded-lg px-3 py-2 text-sm text-white focus:border-lime outline-none">
+              <option value="Pecho">Pecho</option>
+              <option value="Espalda">Espalda</option>
+              <option value="Pierna">Pierna</option>
+              <option value="Hombro">Hombro</option>
+              <option value="Bíceps">Bíceps</option>
+              <option value="Tríceps">Tríceps</option>
+              <option value="Core / Abdomen">Core / Abdomen</option>
+              <option value="Full Body">Full Body</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">Ejercicio</label>
+            <input type="text" id="log-exercise" list="exercise-suggestions" placeholder="Ej. Press de Banca Plano" class="w-full bg-bg border border-borderDark rounded-lg px-3 py-2 text-sm text-white focus:border-lime outline-none">
+            <datalist id="exercise-suggestions"></datalist>
+          </div>
+        </div>
+
+        <!-- Sets Builder -->
+        <div class="bg-bg border border-borderDark rounded-xl p-3.5 mb-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="text-xs font-mono uppercase tracking-wider text-cyan">Series del Ejercicio</span>
+            <span id="live-exercise-vol" class="text-xs font-mono text-lime font-bold">Volumen: 0 kg</span>
+          </div>
+          <div id="sets-container" class="space-y-2"></div>
+          <button type="button" onclick="addSetRow()" class="mt-3 w-full py-2 border border-dashed border-borderDark hover:border-lime text-xs font-mono text-slate-300 hover:text-lime rounded-lg transition flex items-center justify-center gap-1">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Añadir Serie
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-xs font-mono text-slate-400 mb-1">Notas (RPE, sensaciones, técnica)</label>
+          <input type="text" id="log-notes" placeholder="Opcional: Ej. Última serie al fallo, buena técnica" class="w-full bg-bg border border-borderDark rounded-lg px-3 py-2 text-sm text-white focus:border-lime outline-none">
+        </div>
+
+        <button onclick="saveWorkoutEntry()" class="w-full sm:w-auto bg-lime text-bg font-display font-bold text-sm px-6 py-3 rounded-xl hover:brightness-110 transition neon-lime-glow flex items-center justify-center gap-2">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i> Guardar Ejercicio en Bitácora
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 3: CALENDARIO Y DÍAS -->
+    <section id="view-calendar" class="hidden space-y-5">
+      <div class="bg-card border border-borderDark rounded-xl p-4 sm:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 id="cal-month-title" class="font-display font-bold text-xl text-white capitalize">Mes Año</h2>
+            <p class="text-xs text-slate-400">Toca un día para ver los ejercicios realizados o registrar ahí</p>
+          </div>
+          <div class="flex gap-1.5">
+            <button onclick="changeMonth(-1)" class="p-2 rounded-lg bg-bg border border-borderDark hover:border-lime"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+            <button onclick="changeMonth(1)" class="p-2 rounded-lg bg-bg border border-borderDark hover:border-lime"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+
+        <!-- Muscle Legend -->
+        <div class="flex flex-wrap gap-2 mb-4 text-[11px] font-mono">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-lime"></span>Pecho</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan"></span>Espalda</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-fuchsia-400"></span>Pierna</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Hombro</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span>Brazos</span>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="grid grid-cols-7 gap-1.5 text-center text-xs font-mono text-slate-400 mb-2">
+          <div>LUN</div><div>MAR</div><div>MIÉ</div><div>JUE</div><div>VIE</div><div>SÁB</div><div>DOM</div>
+        </div>
+        <div id="calendar-grid" class="grid grid-cols-7 gap-1.5"></div>
+      </div>
+
+      <!-- Selected Day Detail -->
+      <div id="day-detail-card" class="bg-card border border-borderDark rounded-xl p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 id="selected-day-title" class="font-display font-bold text-white text-base">Detalle del Día</h3>
+          <button onclick="logForSelectedDay()" class="text-xs font-mono bg-lime/15 text-lime border border-lime/40 px-3 py-1.5 rounded-lg hover:bg-lime hover:text-bg transition">
+            + Agregar aquí
+          </button>
+        </div>
+        <div id="selected-day-list" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: PROGRESO Y PRs -->
+    <section id="view-progress" class="hidden space-y-5">
+      <div class="bg-card border border-borderDark rounded-xl p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          <div>
+            <h2 class="font-display font-bold text-xl text-white">Evolución por Ejercicio</h2>
+            <p class="text-xs text-slate-400">Analiza tu peso máximo real, 1RM estimado y volumen histórico</p>
+          </div>
+          <select id="progress-exercise-select" onchange="renderProgressView()" class="bg-bg border border-borderDark rounded-lg px-3 py-2 text-sm text-white focus:border-cyan outline-none min-w-[220px]"></select>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mb-5">
+          <div class="bg-bg border border-borderDark p-3 rounded-xl">
+            <span class="text-[11px] font-mono text-slate-400">PR Peso Máximo</span>
+            <p id="pr-max-weight" class="font-mono text-xl sm:text-2xl font-bold text-lime mt-0.5">0 kg</p>
+          </div>
+          <div class="bg-bg border border-borderDark p-3 rounded-xl">
+            <span class="text-[11px] font-mono text-slate-400">1RM Estimado</span>
+            <p id="pr-1rm" class="font-mono text-xl sm:text-2xl font-bold text-cyan mt-0.5">0 kg</p>
+          </div>
+          <div class="bg-bg border border-borderDark p-3 rounded-xl">
+            <span class="text-[11px] font-mono text-slate-400">Mejor Sesión (Vol)</span>
+            <p id="pr-best-vol" class="font-mono text-xl sm:text-2xl font-bold text-white mt-0.5">0 kg</p>
+          </div>
+        </div>
+
+        <div class="h-64 mb-6">
+          <canvas id="progressChart"></canvas>
+        </div>
+
+        <h3 class="font-display font-bold text-sm uppercase tracking-wider text-slate-300 mb-3">Historial del Ejercicio</h3>
+        <div id="exercise-history-list" class="space-y-2"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Registrar Service Worker para PWA instalable offline
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // Capturar evento de instalación nativa (Android / Chrome / Edge)
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('install-banner').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-install-pwa').addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      document.getElementById('install-banner').classList.add('hidden');
+    });
+
+    // --- ESTADO Y DATOS ---
+    const STORAGE_KEY = 'iron_pulse_workouts_v1';
+    let unit = localStorage.getItem('iron_pulse_unit') || 'kg';
+    let weekOffset = 0;
+    let calDate = new Date();
+    let selectedDayStr = toISODate(new Date());
+    let weeklyChartInstance = null;
+    let muscleChartInstance = null;
+    let progressChartInstance = null;
+    let timerInterval = null;
+    let timerSeconds = 0;
+
+    const EXERCISE_DB = {
+      'Pecho': ['Press de Banca Plano', 'Press Inclinado con Mancuernas', 'Aperturas en Polea', 'Fondos en Paralelas', 'Press Declinado'],
+      'Espalda': ['Dominadas', 'Remo con Barra', 'Jalón al Pecho', 'Remo en Polea Baja', 'Peso Muerto Convencional'],
+      'Pierna': ['Sentadilla Libre', 'Prensa de Piernas 45°', 'Peso Muerto Rumano', 'Curl Femoral Tumbado', 'Extensión de Cuádriceps', 'Elevación de Talones'],
+      'Hombro': ['Press Militar con Barra', 'Elevaciones Laterales', 'Pájaros / Posterior', 'Press Arnold'],
+      'Bíceps': ['Curl con Barra Z', 'Curl Martillo', 'Curl Predicador'],
+      'Tríceps': ['Extensión en Polea con Cuerda', 'Press Francés', 'Fondos entre Bancos'],
+      'Core / Abdomen': ['Crunch en Polea', 'Elevación de Piernas Colgado', 'Plancha Abdominal'],
+      'Full Body': ['Clean & Press', 'Kettlebell Swing', 'Burpees']
+    };
+
+    const MUSCLE_COLORS = {
+      'Pecho': '#ccff00',
+      'Espalda': '#00f0ff',
+      'Pierna': '#e879f9',
+      'Hombro': '#fbbf24',
+      'Bíceps': '#fb7185',
+      'Tríceps': '#f43f5e',
+      'Core / Abdomen': '#34d399',
+      'Full Body': '#a78bfa'
+    };
+
+    function toISODate(d) {
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      return new Date(d - tzOffset).toISOString().split('T')[0];
+    }
+
+    function getSeedData() {
+      const today = new Date();
+      const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek - 1));
+
+      const dMon = toISODate(monday);
+      const wed = new Date(monday); wed.setDate(monday.getDate() + 2);
+      const dWed = toISODate(wed);
+      const fri = new Date(monday); fri.setDate(monday.getDate() + 4);
+      const dFri = toISODate(fri);
+      const lastMon = new Date(monday); lastMon.setDate(monday.getDate() - 7);
+      const dLastMon = toISODate(lastMon);
+
+      return [
+        { id: '1', date: dLastMon, muscle: 'Pecho', exercise: 'Press de Banca Plano', sets: [{reps: 10, weight: 75}, {reps: 8, weight: 80}, {reps: 6, weight: 82.5}], notes: 'Buena base' },
+        { id: '2', date: dMon, muscle: 'Pecho', exercise: 'Press de Banca Plano', sets: [{reps: 10, weight: 80}, {reps: 8, weight: 85}, {reps: 6, weight: 87.5}], notes: 'Nuevo récord personal' },
+        { id: '3', date: dMon, muscle: 'Tríceps', exercise: 'Extensión en Polea con Cuerda', sets: [{reps: 12, weight: 25}, {reps: 12, weight: 27.5}, {reps: 10, weight: 30}], notes: '' },
+        { id: '4', date: dWed, muscle: 'Espalda', exercise: 'Remo con Barra', sets: [{reps: 10, weight: 70}, {reps: 8, weight: 75}, {reps: 8, weight: 75}], notes: 'Controlando excéntrica' },
+        { id: '5', date: dWed, muscle: 'Bíceps', exercise: 'Curl con Barra Z', sets: [{reps: 12, weight: 30}, {reps: 10, weight: 35}, {reps: 9, weight: 35}], notes: '' },
+        { id: '6', date: dFri, muscle: 'Pierna', exercise: 'Sentadilla Libre', sets: [{reps: 10, weight: 100}, {reps: 8, weight: 110}, {reps: 6, weight: 115}], notes: 'Profunda y sólida' }
+      ];
+    }
+
+    let workouts = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (!workouts) {
+      workouts = getSeedData();
+      saveWorkouts();
+    }
+
+    function saveWorkouts() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
+    }
+
+    function formatW(kgVal) {
+      const val = unit === 'kg' ? kgVal : kgVal * 2.20462;
+      return `${Math.round(val * 10) / 10} ${unit}`;
+    }
+
+    function toStorageKg(inputVal) {
+      return unit === 'kg' ? inputVal : inputVal / 2.20462;
+    }
+
+    function fromStorageKg(kgVal) {
+      return unit === 'kg' ? Math.round(kgVal * 10) / 10 : Math.round(kgVal * 2.20462 * 10) / 10;
+    }
+
+    function toggleUnit() {
+      unit = unit === 'kg' ? 'lb' : 'kg';
+      localStorage.setItem('iron_pulse_unit', unit);
+      document.getElementById('unit-btn').textContent = unit.toUpperCase();
+      updateLiveVolume();
+      renderAll();
+    }
+
+    function switchTab(tab) {
+      ['dashboard', 'log', 'calendar', 'progress'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.querySelector(`[data-tab="${t}"]`);
+        btn.classList.remove('border-lime', 'text-lime');
+        btn.classList.add('border-transparent', 'text-slate-400');
+      });
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      const activeBtn = document.querySelector(`[data-tab="${tab}"]`);
+      activeBtn.classList.add('border-lime', 'text-lime');
+      activeBtn.classList.remove('border-transparent', 'text-slate-400');
+
+      if (tab === 'dashboard') renderDashboard();
+      if (tab === 'calendar') renderCalendar();
+      if (tab === 'progress') populateProgressSelect();
+    }
+
+    // --- CRONÓMETRO ---
+    function startTimer(sec) {
+      stopTimer();
+      timerSeconds = sec;
+      document.getElementById('timer-stop').classList.remove('hidden');
+      updateTimerUI();
+      timerInterval = setInterval(() => {
+        timerSeconds--;
+        updateTimerUI();
+        if (timerSeconds <= 0) {
+          stopTimer();
+          playBeep();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerSeconds = 0;
+      document.getElementById('timer-display').textContent = '00:00';
+      document.getElementById('timer-display').classList.remove('text-lime');
+      document.getElementById('timer-stop').classList.add('hidden');
+    }
+
+    function updateTimerUI() {
+      const m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+      const s = String(timerSeconds % 60).padStart(2, '0');
+      const el = document.getElementById('timer-display');
+      el.textContent = `${m}:${s}`;
+      el.classList.add('text-lime');
+    }
+
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + i * 0.12);
+          osc.stop(ctx.currentTime + i * 0.12 + 0.3);
+        });
+      } catch (e) {}
+    }
+
+    // --- DASHBOARD SEMANAL ---
+    function getWeekRange(offset) {
+      const now = new Date();
+      const day = now.getDay() === 0 ? 7 : now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day - 1) + offset * 7);
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      return { monday, sunday };
+    }
+
+    function changeWeek(delta) {
+      weekOffset += delta;
+      renderDashboard();
+    }
+
+    function resetToCurrentWeek() {
+      weekOffset = 0;
+      renderDashboard();
+    }
+
+    function calcEntryVolume(entry) {
+      return entry.sets.reduce((acc, s) => acc + (Number(s.reps) * Number(s.weight)), 0);
+    }
+
+    function renderDashboard() {
+      const { monday, sunday } = getWeekRange(weekOffset);
+      const fmt = { day: 'numeric', month: 'short' };
+      const label = weekOffset === 0
+        ? `Esta Semana (${monday.toLocaleDateString('es-MX', fmt)} – ${sunday.toLocaleDateString('es-MX', fmt)})`
+        : `${monday.toLocaleDateString('es-MX', fmt)} – ${sunday.toLocaleDateString('es-MX', fmt)}`;
+      document.getElementById('week-label').textContent = label;
+
+      const startStr = toISODate(monday);
+      const endStr = toISODate(sunday);
+      const weekEntries = workouts.filter(w => w.date >= startStr && w.date <= endStr);
+
+      let totalVol = 0, totalSets = 0, totalReps = 0, maxWeight = 0, maxEx = 'Sin registros';
+      const activeDays = new Set();
+      const dailyVol = [0, 0, 0, 0, 0, 0, 0];
+      const muscleVol = {};
+
+      weekEntries.forEach(entry => {
+        const vol = calcEntryVolume(entry);
+        totalVol += vol;
+        totalSets += entry.sets.length;
+        entry.sets.forEach(s => {
+          totalReps += Number(s.reps);
+          if (Number(s.weight) > maxWeight) {
+            maxWeight = Number(s.weight);
+            maxEx = entry.exercise;
+          }
+        });
+        activeDays.add(entry.date);
+
+        const d = new Date(entry.date + 'T12:00:00');
+        const idx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+        dailyVol[idx] += fromStorageKg(vol);
+        muscleVol[entry.muscle] = (muscleVol[entry.muscle] || 0) + fromStorageKg(vol);
+      });
+
+      document.getElementById('kpi-volume').textContent = formatW(totalVol);
+      document.getElementById('kpi-sets').textContent = totalSets;
+      document.getElementById('kpi-reps').textContent = `${totalReps} repeticiones totales`;
+      document.getElementById('kpi-days').textContent = `${activeDays.size} / 7`;
+      document.getElementById('kpi-max').textContent = formatW(maxWeight);
+      document.getElementById('kpi-max-ex').textContent = maxEx;
+
+      // Dots L-D
+      const dotsEl = document.getElementById('week-dots');
+      const dayLetters = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+      dotsEl.innerHTML = dayLetters.map((l, i) => {
+        const d = new Date(monday); d.setDate(monday.getDate() + i);
+        const active = activeDays.has(toISODate(d));
+        return `<span class="w-5 h-5 rounded text-[10px] font-mono flex items-center justify-center ${active ? 'bg-lime text-bg font-bold' : 'bg-bg text-slate-500 border border-borderDark'}">${l}</span>`;
+      }).join('');
+
+      renderWeeklyCharts(dailyVol, muscleVol);
+      renderWeeklyList(weekEntries);
+    }
+
+    function renderWeeklyCharts(dailyVol, muscleVol) {
+      const ctx1 = document.getElementById('weeklyChart').getContext('2d');
+      if (weeklyChartInstance) weeklyChartInstance.destroy();
+      weeklyChartInstance = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+          datasets: [{
+            label: `Volumen (${unit})`,
+            data: dailyVol,
+            backgroundColor: '#ccff00',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+            y: { grid: { color: '#232838' }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+
+      const ctx2 = document.getElementById('muscleChart').getContext('2d');
+      if (muscleChartInstance) muscleChartInstance.destroy();
+      const labels = Object.keys(muscleVol);
+      const data = Object.values(muscleVol);
+      muscleChartInstance = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: labels.length ? labels : ['Sin datos'],
+          datasets: [{
+            data: data.length ? data : [1],
+            backgroundColor: labels.length ? labels.map(m => MUSCLE_COLORS[m] || '#00f0ff') : ['#232838'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#cbd5e1', boxWidth: 10, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function renderWeeklyList(entries) {
+      const list = document.getElementById('weekly-sessions-list');
+      if (!entries.length) {
+        list.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">No hay entrenamientos registrados en esta semana.</p>`;
+        return;
+      }
+      const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+      list.innerHTML = sorted.map(e => {
+        const vol = calcEntryVolume(e);
+        const setsText = e.sets.map((s, idx) => `S${idx + 1}: ${fromStorageKg(s.weight)}${unit}×${s.reps}`).join(' · ');
+        return `
+          <div class="bg-bg border border-borderDark rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-card border border-borderDark" style="color:${MUSCLE_COLORS[e.muscle] || '#ccff00'}">${e.muscle}</span>
+                <span class="text-xs font-mono text-slate-400">${e.date}</span>
+              </div>
+              <h4 class="font-bold text-white text-sm sm:text-base mt-1">${e.exercise}</h4>
+              <p class="text-xs font-mono text-slate-300 mt-0.5">${setsText}</p>
+              ${e.notes ? `<p class="text-xs text-slate-400 italic mt-1">"${e.notes}"</p>` : ''}
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 border-borderDark pt-2 sm:pt-0">
+              <div class="text-right">
+                <span class="block text-[10px] font-mono text-slate-400">VOLUMEN</span>
+                <span class="font-mono font-bold text-lime text-sm">${formatW(vol)}</span>
+              </div>
+              <button onclick="deleteEntry('${e.id}')" class="text-slate-500 hover:text-rose-400 p-1.5" title="Eliminar">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function deleteEntry(id) {
+      workouts = workouts.filter(w => w.id !== id);
+      saveWorkouts();
+      renderAll();
+    }
+
+    // --- REGISTRO DE RUTINA ---
+    function updateExerciseSuggestions() {
+      const muscle = document.getElementById('log-muscle').value;
+      const dl = document.getElementById('exercise-suggestions');
+      dl.innerHTML = (EXERCISE_DB[muscle] || []).map(ex => `<option value="${ex}">`).join('');
+    }
+
+    function addSetRow(reps = 10, weight = '') {
+      const container = document.getElementById('sets-container');
+      const idx = container.children.length + 1;
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-12 gap-2 items-center set-row';
+      row.innerHTML = `
+        <span class="col-span-2 font-mono text-xs text-slate-400">Set ${idx}</span>
+        <div class="col-span-4">
+          <input type="number" step="0.5" placeholder="Peso (${unit})" value="${weight}" oninput="updateLiveVolume()" class="set-weight w-full bg-card border border-borderDark rounded-lg px-2.5 py-1.5 text-sm font-mono text-white focus:border-lime outline-none">
+        </div>
+        <div class="col-span-4">
+          <input type="number" placeholder="Reps" value="${reps}" oninput="updateLiveVolume()" class="set-reps w-full bg-card border border-borderDark rounded-lg px-2.5 py-1.5 text-sm font-mono text-white focus:border-lime outline-none">
+        </div>
+        <div class="col-span-2 text-right">
+          <button type="button" onclick="this.closest('.set-row').remove(); renumberSets(); updateLiveVolume();" class="text-slate-500 hover:text-rose-400 text-xs font-mono px-2 py-1">✕</button>
+        </div>
+      `;
+      container.appendChild(row);
+      updateLiveVolume();
+    }
+
+    function renumberSets() {
+      document.querySelectorAll('.set-row').forEach((r, i) => {
+        r.querySelector('span').textContent = `Set ${i + 1}`;
+      });
+    }
+
+    function updateLiveVolume() {
+      let vol = 0;
+      document.querySelectorAll('.set-row').forEach(r => {
+        const w = parseFloat(r.querySelector('.set-weight').value) || 0;
+        const reps = parseFloat(r.querySelector('.set-reps').value) || 0;
+        vol += w * reps;
+      });
+      document.getElementById('live-exercise-vol').textContent = `Volumen: ${Math.round(vol * 10) / 10} ${unit}`;
+    }
+
+    function saveWorkoutEntry() {
+      const date = document.getElementById('log-date').value;
+      const muscle = document.getElementById('log-muscle').value;
+      const exercise = document.getElementById('log-exercise').value.trim();
+      const notes = document.getElementById('log-notes').value.trim();
+
+      if (!date || !exercise) {
+        alert('Por favor ingresa la fecha y el nombre del ejercicio.');
+        return;
+      }
+
+      const sets = [];
+      document.querySelectorAll('.set-row').forEach(r => {
+        const wInput = parseFloat(r.querySelector('.set-weight').value);
+        const reps = parseInt(r.querySelector('.set-reps').value);
+        if (!isNaN(wInput) && !isNaN(reps) && reps > 0) {
+          sets.push({ weight: toStorageKg(wInput), reps });
+        }
+      });
+
+      if (!sets.length) {
+        alert('Agrega al menos una serie válida con peso y repeticiones.');
+        return;
+      }
+
+      workouts.push({
+        id: Date.now().toString(),
+        date,
+        muscle,
+        exercise,
+        sets,
+        notes
+      });
+      saveWorkouts();
+      document.getElementById('log-exercise').value = '';
+      document.getElementById('log-notes').value = '';
+      switchTab('dashboard');
+    }
+
+    // --- CALENDARIO ---
+    function changeMonth(delta) {
+      calDate.setMonth(calDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = calDate.getFullYear();
+      const month = calDate.getMonth();
+      document.getElementById('cal-month-title').textContent = calDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+      const firstDay = new Date(year, month, 1);
+      const startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      for (let i = 0; i < startOffset; i++) {
+        grid.innerHTML += `<div class="h-14 sm:h-16 rounded-lg bg-bg/40"></div>`;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dayEntries = workouts.filter(w => w.date === dateStr);
+        const isSelected = dateStr === selectedDayStr;
+        const muscles = [...new Set(dayEntries.map(e => e.muscle))];
+
+        const dots = muscles.map(m => `<span class="w-2 h-2 rounded-full" style="background:${MUSCLE_COLORS[m] || '#ccff00'}"></span>`).join('');
+        grid.innerHTML += `
+          <button onclick="selectCalendarDay('${dateStr}')" class="h-14 sm:h-16 rounded-lg border p-1.5 flex flex-col justify-between text-left transition ${isSelected ? 'bg-lime/15 border-lime' : 'bg-bg border-borderDark hover:border-slate-500'}">
+            <span class="font-mono text-xs ${isSelected ? 'text-lime font-bold' : 'text-slate-300'}">${d}</span>
+            <div class="flex flex-wrap gap-1">${dots}</div>
+          </button>
+        `;
+      }
+      renderSelectedDayDetail();
+    }
+
+    function selectCalendarDay(dateStr) {
+      selectedDayStr = dateStr;
+      renderCalendar();
+    }
+
+    function logForSelectedDay() {
+      document.getElementById('log-date').value = selectedDayStr;
+      switchTab('log');
+    }
+
+    function renderSelectedDayDetail() {
+      document.getElementById('selected-day-title').textContent = `Sesiones del ${selectedDayStr}`;
+      const list = document.getElementById('selected-day-list');
+      const entries = workouts.filter(w => w.date === selectedDayStr);
+      if (!entries.length) {
+        list.innerHTML = `<p class="text-xs text-slate-400">Día de descanso o sin registros.</p>`;
+        return;
+      }
+      list.innerHTML = entries.map(e => `
+        <div class="bg-bg border border-borderDark rounded-lg p-3 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-mono uppercase" style="color:${MUSCLE_COLORS[e.muscle] || '#ccff00'}">${e.muscle}</span>
+            <p class="font-bold text-sm text-white">${e.exercise}</p>
+            <p class="text-xs font-mono text-slate-400">${e.sets.map(s => `${fromStorageKg(s.weight)}${unit}×${s.reps}`).join(' | ')}</p>
+          </div>
+          <span class="font-mono text-xs font-bold text-lime">${formatW(calcEntryVolume(e))}</span>
+        </div>
+      `).join('');
+    }
+
+    // --- PROGRESO Y PRs ---
+    function populateProgressSelect() {
+      const sel = document.getElementById('progress-exercise-select');
+      const uniqueEx = [...new Set(workouts.map(w => w.exercise))].sort();
+      sel.innerHTML = uniqueEx.map(ex => `<option value="${ex}">${ex}</option>`).join('');
+      renderProgressView();
+    }
+
+    function renderProgressView() {
+      const ex = document.getElementById('progress-exercise-select').value;
+      const entries = workouts.filter(w => w.exercise === ex).sort((a, b) => a.date.localeCompare(b.date));
+
+      let maxW = 0, best1RM = 0, bestVol = 0;
+      const labels = [], maxSeries = [], volSeries = [];
+
+      entries.forEach(e => {
+        let sessionMax = 0;
+        e.sets.forEach(s => {
+          const w = Number(s.weight);
+          const r = Number(s.reps);
+          if (w > sessionMax) sessionMax = w;
+          if (w > maxW) maxW = w;
+          const est1RM = w * (1 + r / 30);
+          if (est1RM > best1RM) best1RM = est1RM;
+        });
+        const vol = calcEntryVolume(e);
+        if (vol > bestVol) bestVol = vol;
+
+        labels.push(e.date);
+        maxSeries.push(fromStorageKg(sessionMax));
+        volSeries.push(fromStorageKg(vol));
+      });
+
+      document.getElementById('pr-max-weight').textContent = formatW(maxW);
+      document.getElementById('pr-1rm').textContent = formatW(best1RM);
+      document.getElementById('pr-best-vol').textContent = formatW(bestVol);
+
+      const ctx = document.getElementById('progressChart').getContext('2d');
+      if (progressChartInstance) progressChartInstance.destroy();
+      progressChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: `Peso Máximo (${unit})`,
+            data: maxSeries,
+            borderColor: '#ccff00',
+            backgroundColor: 'rgba(204,255,0,0.12)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: '#232838' }, ticks: { color: '#94a3b8' } },
+            y: { grid: { color: '#232838' }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+
+      let runningPR = 0;
+      const histHTML = entries.map(e => {
+        const sMax = Math.max(...e.sets.map(s => Number(s.weight)));
+        const isPR = sMax > runningPR;
+        if (isPR) runningPR = sMax;
+        return `
+          <div class="bg-bg border border-borderDark rounded-lg p-3 flex items-center justify-between">
+            <div>
+              <span class="font-mono text-xs text-slate-400">${e.date}</span>
+              ${isPR ? `<span class="ml-2 text-[10px] font-mono bg-lime text-bg font-bold px-1.5 py-0.5 rounded">🏆 NUEVO PR</span>` : ''}
+              <p class="font-mono text-xs text-slate-200 mt-1">${e.sets.map(s => `${fromStorageKg(s.weight)}${unit}×${s.reps}`).join(' · ')}</p>
+            </div>
+            <span class="font-mono font-bold text-sm text-cyan">${formatW(sMax)}</span>
+          </div>
+        `;
+      }).reverse().join('');
+      document.getElementById('exercise-history-list').innerHTML = histHTML || '<p class="text-xs text-slate-400">Sin historial.</p>';
+    }
+
+    // --- EXPORTAR / IMPORTAR ---
+    function exportData() {
+      const blob = new Blob([JSON.stringify(workouts, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `iron_pulse_backup_${toISODate(new Date())}.json`;
+      a.click();
+    }
+
+    function importData(ev) {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (Array.isArray(parsed)) {
+            workouts = parsed;
+            saveWorkouts();
+            renderAll();
+            alert('Respaldo importado con éxito.');
+          }
+        } catch {
+          alert('Archivo JSON inválido.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderCalendar();
+      populateProgressSelect();
+    }
+
+    // Inicialización
+    document.getElementById('unit-btn').textContent = unit.toUpperCase();
+    document.getElementById('log-date').value = toISODate(new Date());
+    updateExerciseSuggestions();
+    addSetRow(10, 60);
+    addSetRow(10, 60);
+    addSetRow(8, 65);
+    lucide.createIcons();
+    renderAll();
+  </script>
+</body>
+</html>
